@@ -1,0 +1,38 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "${INSTAML_PORT:-8000}:8000"
+    environment:
+      - INSTAML_ONLINE_URL=${INSTAML_ONLINE_URL:-memory://}
+      - INSTAML_OFFLINE_PATH=${INSTAML_OFFLINE_PATH:-/app/data/instaml.duckdb}
+      - INSTAML_CORS_ORIGINS=${INSTAML_CORS_ORIGINS:-*}
+    volumes:
+      - instaml-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Optional Redis-backed online store. Enable with:
+  #   INSTAML_ONLINE_URL=redis://redis:6379 docker compose --profile redis up -d
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${INSTAML_REDIS_PORT:-6379}:6379"
+    volumes:
+      - instaml-redis-data:/data
+    profiles: ["redis"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  instaml-data:
+  instaml-redis-data:

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>instaml — real-time feature store</title>
+    <style>
+      :root {
+        --bg: #0b0f17;
+        --surface: #11161f;
+        --surface-2: #1a212e;
+        --border: #232b3a;
+        --ink: #e4e7ec;
+        --muted: #8b94a6;
+        --accent: #7dd3fc;
+        --good: #34d399;
+        --warn: #fbbf24;
+        --bad: #f87171;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+      header { border-bottom: 1px solid var(--border); background: var(--surface); }
+      header .wrap { max-width: 1080px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+      header .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: -0.01em; }
+      header .tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; background: var(--surface-2); color: var(--muted); padding: 2px 6px; border-radius: 4px; }
+      header a { font-size: 13px; color: var(--muted); text-decoration: none; }
+      main { max-width: 1080px; margin: 0 auto; padding: 24px; }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+      @media (max-width: 720px) { .grid { grid-template-columns: repeat(1, 1fr); } }
+      .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+      .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+      .stat .value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 22px; margin-top: 6px; letter-spacing: -0.01em; }
+      .stat .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+      .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
+      .panel > header { background: var(--surface-2); padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); display: flex; justify-content: space-between; }
+      .panel > header span:last-child { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: none; letter-spacing: 0; color: var(--ink); font-size: 12px; }
+      .panel .body { padding: 16px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th { text-align: left; padding: 9px 16px; background: var(--surface-2); color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
+      td { padding: 9px 16px; border-top: 1px solid var(--border); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      td.text { font-family: ui-sans-serif, system-ui, sans-serif; }
+      td.right { text-align: right; }
+      tr:hover td { background: var(--surface-2); }
+      .pill { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: rgba(125,211,252,0.12); color: var(--accent); }
+      .empty { padding: 40px; text-align: center; color: var(--muted); font-size: 14px; }
+      .empty pre { background: var(--surface-2); padding: 12px 14px; border-radius: 8px; display: inline-block; text-align: left; margin-top: 12px; font-size: 12px; }
+      .lookup { display: flex; gap: 8px; }
+      .lookup input { flex: 1; background: var(--surface-2); border: 1px solid var(--border); color: var(--ink); padding: 8px 10px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+      .lookup button { background: var(--accent); color: #0b0f17; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
+      .lookup button:hover { opacity: 0.9; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="brand">
+          instaml
+          <span class="tag">alpha</span>
+        </div>
+        <a href="https://github.com/anejakartik/instaml" target="_blank" rel="noreferrer">GitHub ↗</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="grid">
+        <div class="stat"><div class="label">Declared features</div><div class="value" id="s-count">—</div><div class="sub">in catalog</div></div>
+        <div class="stat"><div class="label">Online backend</div><div class="value" id="s-online" style="font-size:14px;">—</div></div>
+        <div class="stat"><div class="label">Offline backend</div><div class="value" id="s-offline" style="font-size:14px;">—</div></div>
+      </section>
+
+      <section class="panel">
+        <header><span>Feature catalog</span><span id="catalog-window">—</span></header>
+        <table>
+          <thead><tr><th>Feature</th><th>Source event</th><th>Aggregation</th><th>Window</th><th class="right">Entities</th></tr></thead>
+          <tbody id="catalog"></tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <header><span>Look up an entity</span></header>
+        <div class="body">
+          <div class="lookup">
+            <input id="entity-input" placeholder="entity id, e.g. user_1" />
+            <button id="lookup-btn">Look up</button>
+          </div>
+        </div>
+        <table id="lookup-table" style="display:none;">
+          <thead><tr><th>Feature</th><th class="right">Value</th><th>Updated</th></tr></thead>
+          <tbody id="lookup-body"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script>
+      async function fetchJson(path) {
+        const res = await fetch(path);
+        if (!res.ok) throw new Error(`${path} → ${res.status}`);
+        return res.json();
+      }
+
+      function escapeHtml(s) {
+        return String(s ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+      }
+      function relative(iso) {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime()) || d.getTime() === 0) return 'never';
+        const s = Math.floor((Date.now() - d.getTime()) / 1000);
+        if (s < 0) return 'just now';
+        if (s < 60) return s + 's ago';
+        if (s < 3600) return Math.floor(s/60) + 'm ago';
+        if (s < 86400) return Math.floor(s/3600) + 'h ago';
+        return Math.floor(s/86400) + 'd ago';
+      }
+
+      let currentCatalog = [];
+
+      async function refreshCatalog() {
+        try {
+          const rows = await fetchJson('/catalog');
+          currentCatalog = rows;
+          renderCatalog(rows);
+        } catch (err) { console.error(err); }
+        try {
+          const health = await fetchJson('/health');
+          document.getElementById('s-online').textContent = health.online;
+          document.getElementById('s-offline').textContent = health.offline;
+        } catch (err) { console.error(err); }
+      }
+
+      function renderCatalog(rows) {
+        document.getElementById('s-count').textContent = rows.length;
+        document.getElementById('catalog-window').textContent = `${rows.length} feature${rows.length === 1 ? '' : 's'}`;
+        const tbody = document.getElementById('catalog');
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="text empty">
+            No features declared.
+            <pre>see features/demo.yaml</pre>
+          </td></tr>`;
+          return;
+        }
+        tbody.innerHTML = rows.map((r) => `
+          <tr>
+            <td class="text">${escapeHtml(r.definition.name)}</td>
+            <td class="text">${escapeHtml(r.definition.source_event_type)}</td>
+            <td><span class="pill">${escapeHtml(r.definition.aggregation)}</span></td>
+            <td>${escapeHtml(r.definition.window)}</td>
+            <td class="right">${r.entity_count.toLocaleString()}</td>
+          </tr>
+        `).join('');
+      }
+
+      async function lookupEntity() {
+        const entityId = document.getElementById('entity-input').value.trim();
+        if (!entityId || !currentCatalog.length) return;
+        const names = currentCatalog.map((r) => r.definition.name).join(',');
+        try {
+          const rows = await fetchJson(`/features/${encodeURIComponent(entityId)}?names=${encodeURIComponent(names)}`);
+          const table = document.getElementById('lookup-table');
+          table.style.display = '';
+          document.getElementById('lookup-body').innerHTML = rows.map((r) => `
+            <tr>
+              <td class="text">${escapeHtml(r.feature_name)}</td>
+              <td class="right">${r.value == null ? '—' : r.value}</td>
+              <td class="text">${relative(r.updated_at)}</td>
+            </tr>
+          `).join('');
+        } catch (err) { console.error(err); }
+      }
+
+      document.getElementById('lookup-btn').addEventListener('click', lookupEntity);
+      document.getElementById('entity-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') lookupEntity(); });
+
+      refreshCatalog();
+      setInterval(refreshCatalog, 5000);
+    </script>
+  </body>
+</html>

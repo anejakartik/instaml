@@ -1,0 +1,23 @@
+app = "instaml-kartik"
+primary_region = "iad"
+
+[build]
+  dockerfile = "server/Dockerfile"
+
+[env]
+  INSTAML_OFFLINE_PATH = "/data/instaml.duckdb"
+  # INSTAML_ONLINE_URL defaults to memory:// (fine for a single always-on
+  # machine). Set this as a Fly secret to an Upstash Redis URL if you want the
+  # online store to survive machine restarts / scale past one instance:
+  #   flyctl secrets set INSTAML_ONLINE_URL=redis://default:<password>@<host>:<port>
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[mounts]]
+  source = "instaml_data"
+  destination = "/data"

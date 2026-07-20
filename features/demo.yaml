@@ -1,0 +1,35 @@
+# Sample feature definitions for the synthetic e-commerce demo.
+# See sdk/instaml/features.py for the loader + sdk/instaml/models.py for the schema.
+features:
+  - name: purchases_last_5m
+    source_event_type: purchase
+    aggregation: count
+    window: 5m
+
+  - name: avg_cart_value_1h
+    source_event_type: purchase
+    aggregation: avg
+    field: amount
+    window: 1h
+
+  - name: lifetime_purchase_count
+    source_event_type: purchase
+    aggregation: count
+    window: lifetime
+
+  - name: lifetime_total_spend
+    source_event_type: purchase
+    aggregation: sum
+    field: amount
+    window: lifetime
+
+  - name: last_purchase_amount
+    source_event_type: purchase
+    aggregation: last
+    field: amount
+    window: lifetime
+
+  - name: page_views_last_5m
+    source_event_type: page_view
+    aggregation: count
+    window: 5m
