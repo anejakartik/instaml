@@ -2,7 +2,7 @@
 
 > Feast and Tecton are built for platform teams with weeks to spend on deployment. instaml is a YAML feature-defs → online/offline dual-write feature store a solo ML engineer can stand up before lunch.
 
-**Live demo:** [instaml.kartikaneja.com](https://instaml.kartikaneja.com) *(coming soon)*
+**Live demo:** [instaml.kartikaneja.com](https://instaml.kartikaneja.com)
 **Status:** alpha · last shipped 2026-07-20
 **Built by:** [Kartik Aneja](https://kartikaneja.com) — AI/ML Platform Engineer
 
