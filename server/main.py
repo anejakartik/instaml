@@ -4,6 +4,7 @@ Endpoints:
   POST /events                 — accept an Event, recompute every feature it feeds
   GET  /features/{entity_id}   — current value of one or more named features
   GET  /catalog                — every declared feature + how many entities have a value
+  POST /training-set           — point-in-time-correct feature values for (entity, timestamp, label) rows
   GET  /health                 — online/offline backend descriptions
   GET  /                       — static HTML dashboard
 
@@ -28,9 +29,10 @@ from fastapi.staticfiles import StaticFiles
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sdk"))
 from compute import apply_event  # noqa: E402
 from instaml.features import load_feature_defs  # noqa: E402
-from instaml.models import Event, FeatureCatalogEntry, FeatureValue  # noqa: E402
+from instaml.models import Event, FeatureCatalogEntry, FeatureValue, TrainingSetRequest  # noqa: E402
 from offline import make_offline_store  # noqa: E402
-from online import make_online_store  # noqa: E402
+from online import make_online_store
+from training import build_training_set  # noqa: E402
 
 ONLINE_URL = os.environ.get("INSTAML_ONLINE_URL", "memory://")
 OFFLINE_PATH = os.environ.get("INSTAML_OFFLINE_PATH", "./instaml.duckdb")
@@ -115,6 +117,25 @@ def catalog() -> list[FeatureCatalogEntry]:
         FeatureCatalogEntry(definition=fd, entity_count=online.entity_count(fd.name))
         for fd in feature_defs
     ]
+
+
+# ---- Training data ----------------------------------------------------------
+
+
+@app.post("/training-set")
+def training_set(request: TrainingSetRequest) -> list[dict[str, object]]:
+    """Feature values for each row as of that row's timestamp, recomputed
+    from the offline event log, never the current online value, so labels
+    can't be joined against features from their own future."""
+    unknown = [n for n in request.features if n not in feature_defs_by_name]
+    if unknown:
+        raise HTTPException(404, f"Unknown feature(s): {', '.join(unknown)}")
+    try:
+        return build_training_set(
+            request.rows, [feature_defs_by_name[n] for n in request.features], offline
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 def _epoch():

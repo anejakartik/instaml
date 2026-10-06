@@ -21,6 +21,7 @@ See [PRODUCT.md](./PRODUCT.md) for the full user/problem/solution writeup. TL;DR
 - **Declarative YAML feature definitions** — `count` / `sum` / `avg` / `min` / `max` / `last`, over a rolling window (`5m`, `1h`, `7d`) or `lifetime`
 - **Dual-write on every event** — DuckDB stores every raw event (the offline source of truth, exportable to Parquet); an online store (in-memory or Redis) holds the current computed value per entity for fast reads
 - **Python SDK** — `instaml.emit_event(...)` (fail-soft, never breaks your app) and `instaml.get_features(...)` (degrades to `{}` on outage, never raises)
+- **Point-in-time-correct training sets** — `POST /training-set` / `instaml.get_training_set(rows, features)`: for each `(entity_id, timestamp, label)` row, every feature's value *as of that timestamp*, recomputed from the offline log through the same function the online path uses, so labels never get joined to features from their own future. `examples/leakage_demo.py` shows what the naive join costs: on a synthetic churn-style dataset, it inflates a feature's AUC from 0.80 to 0.90
 - **Live dashboard** — feature catalog + an entity lookup panel, auto-refreshing
 - **No-key quickstart** — `examples/quickstart.py` posts 60 synthetic e-commerce events across 20 fake users so the dashboard isn't empty
 
@@ -39,6 +40,7 @@ Real usage:
 
 ```python
 import instaml
+import pandas
 
 instaml.configure(endpoint="http://localhost:8000")
 
@@ -47,6 +49,10 @@ instaml.emit_event(entity_id="user_42", event_type="purchase", payload={"amount"
 
 # From your model-serving code:
 features = instaml.get_features("user_42", ["purchases_last_5m", "avg_cart_value_1h"])
+
+# From your training pipeline (point-in-time correct):
+rows = [{"entity_id": "user_42", "timestamp": "2026-09-01T12:00:00Z", "label": 1}]
+training_df = pandas.DataFrame(instaml.get_training_set(rows, ["lifetime_purchase_count"]))
 ```
 
 ## Architecture
@@ -55,7 +61,7 @@ See [docs/architecture.md](./docs/architecture.md). Stack: Python SDK + FastAPI 
 
 ## What's next
 
-See [ROADMAP.md](./ROADMAP.md). Top items: Kafka ingestion adapter, feature drift monitoring, point-in-time-correct training-dataset export, feature lineage UI.
+See [ROADMAP.md](./ROADMAP.md). Top items: Kafka ingestion adapter, feature drift monitoring, a single-SQL ASOF join for large training-set backfills, feature lineage UI.
 
 ## Contributing
 

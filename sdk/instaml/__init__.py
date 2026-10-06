@@ -4,6 +4,7 @@ Public API:
     instaml.configure(endpoint=...)
     instaml.emit_event(entity_id="user_42", event_type="purchase", payload={"amount": 19.99})
     instaml.get_features("user_42", ["purchases_last_5m", "avg_cart_value_1h"])
+    instaml.get_training_set(rows, ["lifetime_purchase_count"])  # point-in-time correct
 
 Design contracts:
 - `emit_event` is fail-soft, same contract as tracelens's `@traced`: if the
@@ -23,7 +24,7 @@ from typing import Any
 import httpx
 
 from .features import load_feature_defs
-from .models import Aggregation, Event, FeatureDefinition, FeatureValue
+from .models import Aggregation, Event, FeatureDefinition, FeatureValue, TrainingRow, TrainingSetRequest
 
 log = logging.getLogger("instaml")
 
@@ -99,14 +100,42 @@ def get_features(entity_id: str, feature_names: list[str]) -> dict[str, float | 
         return {}
 
 
+def get_training_set(
+    rows: list[TrainingRow | dict[str, Any]],
+    feature_names: list[str],
+    timeout: float = 60.0,
+) -> list[dict[str, Any]]:
+    """Point-in-time-correct training data: for each (entity_id, timestamp,
+    label) row, every requested feature's value *as of that timestamp*.
+
+    Unlike `get_features`, this raises on failure. It's an offline batch
+    call, and silently training on an empty dataset is worse than a crash.
+    Returns flat dicts, so `pandas.DataFrame(result)` works directly.
+    """
+    payload = TrainingSetRequest(
+        rows=[r if isinstance(r, TrainingRow) else TrainingRow(**r) for r in rows],
+        features=feature_names,
+    )
+    resp = httpx.post(
+        f"{_endpoint.rstrip('/')}/training-set",
+        json=payload.model_dump(mode="json"),
+        headers=_headers(),
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
 __all__ = [
     "configure",
     "emit_event",
     "get_features",
+    "get_training_set",
     "load_feature_defs",
     "Aggregation",
     "Event",
     "FeatureDefinition",
     "FeatureValue",
+    "TrainingRow",
 ]
 __version__ = "0.1.0a1"

@@ -77,3 +77,38 @@ def test_dashboard_root_serves_html() -> None:
         r = c.get("/")
         assert r.status_code == 200
         assert "instaml" in r.text
+
+
+def test_training_set_is_point_in_time_correct() -> None:
+    with TestClient(main.app) as c:
+        base = "2026-09-01T12:00:00+00:00"
+        for ts in ("2026-09-01T12:00:00Z", "2026-09-01T12:10:00Z", "2026-09-01T12:20:00Z"):
+            c.post("/events", json={"entity_id": "pit_user", "event_type": "purchase", "timestamp": ts,
+                                    "payload": {"amount": 10}})
+        r = c.post(
+            "/training-set",
+            json={
+                "rows": [
+                    {"entity_id": "pit_user", "timestamp": "2026-09-01T12:15:00Z", "label": 1},
+                    {"entity_id": "pit_user", "timestamp": base, "label": 0},
+                ],
+                "features": ["lifetime_purchase_count", "lifetime_total_spend"],
+            },
+        )
+        assert r.status_code == 200
+        first, second = r.json()
+        assert (first["lifetime_purchase_count"], first["lifetime_total_spend"], first["label"]) == (2.0, 20.0, 1)
+        assert second["lifetime_purchase_count"] == 1.0
+
+
+def test_training_set_unknown_feature_is_404() -> None:
+    with TestClient(main.app) as c:
+        r = c.post("/training-set", json={"rows": [{"entity_id": "u", "timestamp": "2026-09-01T00:00:00Z"}],
+                                          "features": ["nope"]})
+        assert r.status_code == 404
+
+
+def test_training_set_requires_at_least_one_feature() -> None:
+    with TestClient(main.app) as c:
+        r = c.post("/training-set", json={"rows": [], "features": []})
+        assert r.status_code == 422

@@ -29,8 +29,10 @@ class OfflineStore(Protocol):
         entity_id: str,
         event_type: str,
         since: datetime | None,
+        until: datetime | None = None,
     ) -> list[Event]:
-        """All matching events, since=None means unbounded (lifetime window)."""
+        """All matching events with since <= timestamp <= until. since=None
+        means unbounded (lifetime window); until=None means no upper bound."""
         ...
 
     def describe(self) -> str: ...

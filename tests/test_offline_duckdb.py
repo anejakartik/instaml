@@ -68,3 +68,25 @@ def test_export_parquet_writes_a_readable_file() -> None:
     con = duckdb.connect()
     count = con.execute(f"SELECT count(*) FROM read_parquet('{out_path}')").fetchone()[0]
     assert count == 1
+
+
+def test_non_utc_timestamps_are_converted_not_relabelled() -> None:
+    # Regression: 12:00+05:30 was stored as 12:00 UTC (offset dropped, not converted).
+    store = _store()
+    ist = timezone(timedelta(hours=5, minutes=30))
+    event = Event(entity_id="u1", event_type="purchase", timestamp=datetime(2026, 10, 1, 12, 0, tzinfo=ist))
+    store.append_event(event)
+
+    [row] = store.query_events(entity_id="u1", event_type="purchase", since=None)
+    assert row.timestamp == datetime(2026, 10, 1, 6, 30, tzinfo=timezone.utc)
+
+
+def test_query_until_excludes_later_events() -> None:
+    store = _store()
+    now = datetime.now(timezone.utc)
+    early = Event(entity_id="u1", event_type="purchase", timestamp=now - timedelta(hours=2), payload={})
+    store.append_event(early)
+    store.append_event(Event(entity_id="u1", event_type="purchase", timestamp=now, payload={}))
+
+    rows = store.query_events(entity_id="u1", event_type="purchase", since=None, until=now - timedelta(hours=1))
+    assert [r.id for r in rows] == [early.id]

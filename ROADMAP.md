@@ -4,6 +4,15 @@
 
 ## Shipping log (newest on top)
 
+### 2026-10-06 — point-in-time training sets, CI green again
+- [x] `POST /training-set` + `instaml.get_training_set()`: features for `(entity_id, timestamp, label)` rows computed from events at or before each row's timestamp (offline store gained an `until` bound)
+- [x] One `feature_value_as_of()` now serves both the online write path (as_of=now) and training export (as_of=row time), so there's no second implementation to drift into training/serving skew
+- [x] `examples/leakage_demo.py`: 500 synthetic users, label = "bought within 14 days of the snapshot". `lifetime_purchase_count` alone scores AUC 0.899 with a naive join against current values vs 0.795 point-in-time (0.08–0.10 gap across 6 seeds); 322/500 rows had a leaked value
+- [x] Fixed: non-UTC event timestamps were relabelled, not converted (12:00+05:30 was stored as 12:00 UTC, 5.5h off), skewing every window for any client not sending UTC
+- [x] Fixed: CI red since 2026-08-11. There was no ruff config and ruff was unpinned in CI, so a ruff release changing the default rules failed the lint gate with no code change. Added `ruff.toml` (same rule set as evalstack/tracelens) and pinned ruff
+- [x] 43 tests
+- Notes: export does len(rows) × len(features) indexed DuckDB lookups, fine at demo scale. A large backfill wants one ASOF join in SQL; added below.
+
 ### 2026-07-20 — Alpha MVP: declarative features, dual-write, SDK, dashboard
 - [x] YAML feature definitions (count/sum/avg/min/max/last, rolling or lifetime window)
 - [x] FastAPI server: `POST /events`, `GET /features/{entity_id}`, `GET /catalog`, `GET /health`
@@ -26,7 +35,8 @@ Priority order. Pick from top of list.
 - [ ] **P0 / Fly.io + Vercel deploy** — get `instaml.kartikaneja.com` live, seed with synthetic traffic *(est. 1 day · drives a build-in-public post)*
 - [ ] **P0 / Kafka ingestion adapter** — optional consumer that forwards Upstash Kafka messages into the same `/events` handler
 - [ ] **P1 / Feature drift monitoring** — flag when a feature's distribution shifts week-over-week
-- [ ] **P1 / Point-in-time training-dataset export** — join declared features against a list of (entity, timestamp) pairs for offline training, without leaking future data
+- [x] **P1 / Point-in-time training-dataset export**: shipped 2026-10-06 (see above)
+- [ ] **P2 / Single-SQL ASOF join for training sets**: replace the per-row lookups with one DuckDB window/ASOF query for large backfills
 - [ ] **P2 / Feature lineage UI** — which events feed which features, visualized
 
 ## Medium-term — months 2–3
@@ -57,6 +67,7 @@ Each shipped feature should produce a post. Track them here so we don't double-p
 | Feature | Post draft | Posted? | URL |
 |---|---|---|---|
 | Alpha MVP launch | — | — | — |
+| Point-in-time training sets | portfolio-site/docs/brand-plan/profile/linkedin-post-2026-10-13-instaml-pit.md | — | — |
 
 ## Decisions log
 

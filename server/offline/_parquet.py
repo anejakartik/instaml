@@ -48,7 +48,7 @@ class DuckDBOfflineStore:
                     str(event.id),
                     event.entity_id,
                     event.event_type,
-                    event.timestamp.replace(tzinfo=None),
+                    _to_naive_utc(event.timestamp),
                     json.dumps(event.payload),
                 ],
             )
@@ -59,20 +59,21 @@ class DuckDBOfflineStore:
         entity_id: str,
         event_type: str,
         since: datetime | None,
+        until: datetime | None = None,
     ) -> list[Event]:
+        sql = (
+            "SELECT id, entity_id, event_type, timestamp, payload_json FROM events "
+            "WHERE entity_id = ? AND event_type = ?"
+        )
+        params: list[object] = [entity_id, event_type]
+        if since is not None:
+            sql += " AND timestamp >= ?"
+            params.append(_to_naive_utc(since))
+        if until is not None:
+            sql += " AND timestamp <= ?"
+            params.append(_to_naive_utc(until))
         with self._lock:
-            if since is not None:
-                rows = self._con.execute(
-                    "SELECT id, entity_id, event_type, timestamp, payload_json FROM events "
-                    "WHERE entity_id = ? AND event_type = ? AND timestamp >= ?",
-                    [entity_id, event_type, since.replace(tzinfo=None)],
-                ).fetchall()
-            else:
-                rows = self._con.execute(
-                    "SELECT id, entity_id, event_type, timestamp, payload_json FROM events "
-                    "WHERE entity_id = ? AND event_type = ?",
-                    [entity_id, event_type],
-                ).fetchall()
+            rows = self._con.execute(sql, params).fetchall()
         return [_row_to_event(r) for r in rows]
 
     def export_parquet(self, out_path: str) -> None:
@@ -92,6 +93,16 @@ class DuckDBOfflineStore:
 
     def describe(self) -> str:
         return f"duckdb ({self._db_path}, parquet-exportable)"
+
+
+def _to_naive_utc(ts: datetime) -> datetime:
+    """The `events.timestamp` column is naive UTC. Convert before stripping the
+    offset: a bare `.replace(tzinfo=None)` on 12:00+05:30 used to store 12:00
+    instead of 06:30, shifting every non-UTC event by its offset. A naive input
+    is taken to already be UTC."""
+    if ts.tzinfo is not None:
+        ts = ts.astimezone(timezone.utc)
+    return ts.replace(tzinfo=None)
 
 
 def _row_to_event(row: tuple) -> Event:

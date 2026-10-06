@@ -35,18 +35,33 @@ def apply_event(
     for fd in feature_defs:
         if fd.source_event_type != event.event_type:
             continue
-        window = fd.window_delta()
-        since = None if window is None else utc_now() - window
-        matching = offline.query_events(
-            entity_id=event.entity_id, event_type=fd.source_event_type, since=since
-        )
-        value = _aggregate(matching, fd)
         now = utc_now()
+        value = feature_value_as_of(event.entity_id, fd, now, offline)
         online.set(event.entity_id, fd.name, value, now)
         updated.append(
             FeatureValue(entity_id=event.entity_id, feature_name=fd.name, value=value, updated_at=now)
         )
     return updated
+
+
+def feature_value_as_of(
+    entity_id: str, fd: FeatureDefinition, as_of: datetime, offline: OfflineStore
+) -> float:
+    """The value `fd` had for `entity_id` at `as_of`, using only events at or
+    before `as_of`.
+
+    This one function serves both paths: the online write path calls it with
+    as_of=now, the training-set export calls it with each row's historical
+    timestamp. Same window math and same aggregation either way, so a model
+    trains on exactly the values it would have been served (no
+    training/serving skew from two implementations drifting apart).
+    """
+    window = fd.window_delta()
+    since = None if window is None else as_of - window
+    events = offline.query_events(
+        entity_id=entity_id, event_type=fd.source_event_type, since=since, until=as_of
+    )
+    return _aggregate(events, fd)
 
 
 def _aggregate(events: list[Event], fd: FeatureDefinition) -> float:

@@ -73,6 +73,21 @@ class FeatureValue(BaseModel):
     updated_at: datetime
 
 
+class TrainingRow(BaseModel):
+    """One row of a training-set request: an entity, the moment its label
+    was observed, and the label itself. Features are computed as of
+    `timestamp`, never later."""
+
+    entity_id: str
+    timestamp: datetime
+    label: float | int | str | bool | None = None
+
+
+class TrainingSetRequest(BaseModel):
+    rows: list[TrainingRow] = Field(..., max_length=5000)
+    features: list[str] = Field(..., min_length=1)
+
+
 class FeatureCatalogEntry(BaseModel):
     """A feature definition plus how many entities currently have a value —
     lets the dashboard show the catalog is real, not just declared."""
