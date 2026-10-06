@@ -7,6 +7,8 @@ import tempfile
 from datetime import timedelta
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "sdk"))
 
@@ -36,11 +38,8 @@ def test_window_delta_lifetime_is_unbounded() -> None:
 
 def test_window_delta_rejects_unknown_unit() -> None:
     fd = FeatureDefinition(name="a", source_event_type="e", aggregation=Aggregation.COUNT, window="5x")
-    try:
+    with pytest.raises(ValueError):
         fd.window_delta()
-        assert False, "expected ValueError"
-    except ValueError:
-        pass
 
 
 def test_load_feature_defs_from_yaml() -> None:

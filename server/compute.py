@@ -14,7 +14,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from instaml.models import Aggregation, Event, FeatureDefinition, FeatureValue
-
 from offline import OfflineStore
 from online import OnlineStore
 

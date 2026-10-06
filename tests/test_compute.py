@@ -7,13 +7,14 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "sdk"))
 sys.path.insert(0, str(_ROOT / "server"))
 
-from instaml.models import Aggregation, Event, FeatureDefinition  # noqa: E402
-
 from compute import _aggregate, apply_event  # noqa: E402
+from instaml.models import Aggregation, Event, FeatureDefinition  # noqa: E402
 from offline import make_offline_store  # noqa: E402
 from online import make_online_store  # noqa: E402
 
@@ -65,11 +66,8 @@ def test_aggregate_last_uses_most_recent_by_timestamp_not_list_order() -> None:
 
 def test_aggregate_sum_missing_field_required_raises() -> None:
     fd = FeatureDefinition(name="n", source_event_type="purchase", aggregation=Aggregation.SUM)
-    try:
+    with pytest.raises(ValueError):
         _aggregate([_event("u1", "purchase")], fd)
-        assert False, "expected ValueError for missing field"
-    except ValueError:
-        pass
 
 
 # ---- apply_event (integration: real online + offline stores) ---------------
@@ -102,7 +100,9 @@ def test_apply_event_only_updates_features_with_matching_event_type() -> None:
 def test_apply_event_lifetime_count_accumulates_across_events() -> None:
     online, offline = _fresh_stores()
     feature_defs = [
-        FeatureDefinition(name="lifetime_count", source_event_type="purchase", aggregation=Aggregation.COUNT, window="lifetime"),
+        FeatureDefinition(
+            name="lifetime_count", source_event_type="purchase", aggregation=Aggregation.COUNT, window="lifetime"
+        ),
     ]
     for _ in range(3):
         apply_event(Event(entity_id="u1", event_type="purchase", payload={}), feature_defs, online, offline)
@@ -114,7 +114,9 @@ def test_apply_event_lifetime_count_accumulates_across_events() -> None:
 def test_apply_event_window_excludes_events_outside_window() -> None:
     online, offline = _fresh_stores()
     feature_defs = [
-        FeatureDefinition(name="recent_count", source_event_type="purchase", aggregation=Aggregation.COUNT, window="5m"),
+        FeatureDefinition(
+            name="recent_count", source_event_type="purchase", aggregation=Aggregation.COUNT, window="5m"
+        ),
     ]
     # Directly seed an old event straight into the offline store (bypassing
     # apply_event, since apply_event always timestamps "now").
@@ -130,7 +132,9 @@ def test_apply_event_window_excludes_events_outside_window() -> None:
 def test_apply_event_isolates_entities() -> None:
     online, offline = _fresh_stores()
     feature_defs = [
-        FeatureDefinition(name="lifetime_count", source_event_type="purchase", aggregation=Aggregation.COUNT, window="lifetime"),
+        FeatureDefinition(
+            name="lifetime_count", source_event_type="purchase", aggregation=Aggregation.COUNT, window="lifetime"
+        ),
     ]
     apply_event(Event(entity_id="u1", event_type="purchase", payload={}), feature_defs, online, offline)
     apply_event(Event(entity_id="u2", event_type="purchase", payload={}), feature_defs, online, offline)

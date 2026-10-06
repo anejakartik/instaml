@@ -12,7 +12,6 @@ sys.path.insert(0, str(_ROOT / "sdk"))
 sys.path.insert(0, str(_ROOT / "server"))
 
 from instaml.models import Event  # noqa: E402
-
 from offline._parquet import DuckDBOfflineStore  # noqa: E402
 
 

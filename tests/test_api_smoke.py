@@ -17,9 +17,8 @@ os.environ["INSTAML_ONLINE_URL"] = "memory://"
 os.environ["INSTAML_OFFLINE_PATH"] = tempfile.mktemp(suffix=".duckdb")
 os.environ["INSTAML_FEATURES_PATH"] = str(_ROOT / "features" / "demo.yaml")
 
-from fastapi.testclient import TestClient  # noqa: E402
-
 import main  # noqa: E402, PLC0415
+from fastapi.testclient import TestClient  # noqa: E402
 
 
 def test_health() -> None:

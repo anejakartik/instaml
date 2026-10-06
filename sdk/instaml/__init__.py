@@ -22,8 +22,8 @@ from typing import Any
 
 import httpx
 
-from .models import Aggregation, Event, FeatureDefinition, FeatureValue
 from .features import load_feature_defs
+from .models import Aggregation, Event, FeatureDefinition, FeatureValue
 
 log = logging.getLogger("instaml")
 

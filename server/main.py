@@ -26,10 +26,9 @@ from fastapi.staticfiles import StaticFiles
 
 # Make `sdk` importable for shared models + feature-def loading.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sdk"))
+from compute import apply_event  # noqa: E402
 from instaml.features import load_feature_defs  # noqa: E402
 from instaml.models import Event, FeatureCatalogEntry, FeatureValue  # noqa: E402
-
-from compute import apply_event  # noqa: E402
 from offline import make_offline_store  # noqa: E402
 from online import make_online_store  # noqa: E402
 

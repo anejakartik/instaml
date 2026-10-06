@@ -14,7 +14,6 @@ import threading
 from datetime import datetime, timezone
 
 import duckdb
-
 from instaml.models import Event
 
 

@@ -1,0 +1,10 @@
+# Repo-wide lint config. Without one, `ruff check .` ran against whatever
+# ruff's *current* default rule set was. CI installs ruff unpinned, so a ruff
+# release that changed the defaults (adding I/RUF rules) turned CI red on
+# 2026-08-11 with no code change. Mirrors evalstack/tracelens's ruff.toml so
+# the repos sharing this scaffolding template lint the same way.
+line-length = 120
+target-version = "py310"  # sdk requires-python >=3.10
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
