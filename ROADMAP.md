@@ -10,7 +10,8 @@
 - [x] `examples/leakage_demo.py`: 500 synthetic users, label = "bought within 14 days of the snapshot". `lifetime_purchase_count` alone scores AUC 0.899 with a naive join against current values vs 0.795 point-in-time (0.08–0.10 gap across 6 seeds); 322/500 rows had a leaked value
 - [x] Fixed: non-UTC event timestamps were relabelled, not converted (12:00+05:30 was stored as 12:00 UTC, 5.5h off), skewing every window for any client not sending UTC
 - [x] Fixed: CI red since 2026-08-11. There was no ruff config and ruff was unpinned in CI, so a ruff release changing the default rules failed the lint gate with no code change. Added `ruff.toml` (same rule set as evalstack/tracelens) and pinned ruff
-- [x] 43 tests
+- [x] Fixed: the live demo read null for every feature after an idle period. It runs the in-memory online store (not Redis, as the docs claimed), Fly auto-stops idle machines, and nothing rebuilt values on boot. `rehydrate_online()` now recomputes every entity's current values from DuckDB at startup, so windowed features also decay to their true value
+- [x] 45 tests
 - Notes: export does len(rows) × len(features) indexed DuckDB lookups, fine at demo scale. A large backfill wants one ASOF join in SQL; added below.
 
 ### 2026-07-20 — Alpha MVP: declarative features, dual-write, SDK, dashboard

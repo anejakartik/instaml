@@ -35,6 +35,10 @@ class OfflineStore(Protocol):
         means unbounded (lifetime window); until=None means no upper bound."""
         ...
 
+    def entity_ids(self, *, event_type: str) -> list[str]:
+        """Every distinct entity with at least one event of this type."""
+        ...
+
     def describe(self) -> str: ...
 
 

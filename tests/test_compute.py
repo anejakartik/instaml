@@ -142,3 +142,27 @@ def test_apply_event_isolates_entities() -> None:
 
     assert online.get("u1", "lifetime_count")[0] == 1.0
     assert online.get("u2", "lifetime_count")[0] == 2.0
+
+
+def test_rehydrate_rebuilds_an_empty_online_store_from_the_offline_log() -> None:
+    # Simulates a restart: events are in DuckDB, the in-memory store is fresh.
+    from compute import rehydrate_online
+
+    _, offline = _fresh_stores()
+    lifetime = FeatureDefinition(
+        name="lifetime_count", source_event_type="purchase", aggregation=Aggregation.COUNT, window="lifetime"
+    )
+    recent = FeatureDefinition(
+        name="recent_count", source_event_type="purchase", aggregation=Aggregation.COUNT, window="5m"
+    )
+    offline.append_event(_event("u1", "purchase", minutes_ago=60))
+    offline.append_event(_event("u1", "purchase", minutes_ago=1))
+    offline.append_event(_event("u2", "page_view"))
+
+    online = make_online_store("memory://")
+    written = rehydrate_online([lifetime, recent], online, offline)
+
+    assert written == 2  # u1 x 2 features; u2 has no purchase events
+    assert online.get("u1", "lifetime_count")[0] == 2.0
+    assert online.get("u1", "recent_count")[0] == 1.0  # the 60-minute-old event has aged out
+    assert online.get("u2", "lifetime_count") is None

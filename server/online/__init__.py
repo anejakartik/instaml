@@ -3,9 +3,10 @@
 Two implementations:
 - In-memory dict (default) — zero-config, single-process, fine for local dev
   and the CI test suite.
-- Redis (via INSTAML_ONLINE_URL=redis://...) — used for the hosted demo, since
-  a real online store needs to survive across the Fly.io machine's request
-  lifecycle and be shareable if the app ever scales past one instance.
+- Redis (via INSTAML_ONLINE_URL=redis://...): for when values must be shared
+  across instances. The hosted demo currently runs the in-memory store on one
+  machine; it starts empty on each boot and is rebuilt from the offline log
+  by `compute.rehydrate_online()` at startup.
 
 Feature *values* are always recomputed from the OfflineStore's raw events on
 every write (see server/compute.py) — the online store's only job is storing

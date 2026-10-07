@@ -76,6 +76,13 @@ class DuckDBOfflineStore:
             rows = self._con.execute(sql, params).fetchall()
         return [_row_to_event(r) for r in rows]
 
+    def entity_ids(self, *, event_type: str) -> list[str]:
+        with self._lock:
+            rows = self._con.execute(
+                "SELECT DISTINCT entity_id FROM events WHERE event_type = ? ORDER BY entity_id", [event_type]
+            ).fetchall()
+        return [r[0] for r in rows]
+
     def export_parquet(self, out_path: str) -> None:
         """Snapshot the full event log to a Parquet file — portable format for
         analysis outside instaml (pandas, another DuckDB session, a warehouse

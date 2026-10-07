@@ -44,6 +44,30 @@ def apply_event(
     return updated
 
 
+def rehydrate_online(
+    feature_defs: list[FeatureDefinition], online: OnlineStore, offline: OfflineStore
+) -> int:
+    """Recompute every entity's current value for every feature from the
+    offline log, and write it to the online store. Returns values written.
+
+    Run at startup. The in-memory online store starts empty on every boot,
+    and the hosted demo's machine auto-stops when idle, so without this the
+    dashboard and `GET /features` read null until fresh events arrive, even
+    though every event is still in DuckDB. Also correct for Redis: it
+    rewrites the same values, and windowed features (e.g. `5m`) decay to
+    their true current value instead of keeping a stale one.
+
+    Cost is entities x features indexed lookups, once per boot.
+    """
+    now = utc_now()
+    written = 0
+    for fd in feature_defs:
+        for entity_id in offline.entity_ids(event_type=fd.source_event_type):
+            online.set(entity_id, fd.name, feature_value_as_of(entity_id, fd, now, offline), now)
+            written += 1
+    return written
+
+
 def feature_value_as_of(
     entity_id: str, fd: FeatureDefinition, as_of: datetime, offline: OfflineStore
 ) -> float:

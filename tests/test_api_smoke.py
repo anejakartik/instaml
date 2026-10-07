@@ -112,3 +112,15 @@ def test_training_set_requires_at_least_one_feature() -> None:
     with TestClient(main.app) as c:
         r = c.post("/training-set", json={"rows": [], "features": []})
         assert r.status_code == 422
+
+
+def test_feature_values_survive_a_restart() -> None:
+    from online import make_online_store
+
+    with TestClient(main.app) as c:
+        c.post("/events", json={"entity_id": "restart_user", "event_type": "purchase", "payload": {"amount": 5}})
+
+    main.online = make_online_store("memory://")  # what a reboot does to the in-memory store
+    with TestClient(main.app) as c:
+        r = c.get("/features/restart_user", params={"names": "lifetime_purchase_count"})
+        assert r.json()[0]["value"] == 1.0
